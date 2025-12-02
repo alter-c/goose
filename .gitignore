@@ -1,0 +1,10 @@
+__pycache__/
+
+ipc/
+experiments/
+experiment/
+embeddings/
+
+*.pyc
+*.log
+*.dt
