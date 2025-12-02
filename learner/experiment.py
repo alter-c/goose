@@ -28,7 +28,7 @@ TIMEOUT = 600 + 30 # 600 seconds for search, 30 seconds for warmup
 _SEARCH = "gbbfs"
 
 _MODEL_NAME = "attention"
-_EXPERIMENT_DIR = os.path.join(ROOT_DIR, "experiment", "result", _MODEL_NAME)
+_EXPERIMENT_DIR = os.path.join(ROOT_DIR, "experiment", "results", _MODEL_NAME)
 
 _TRAINED_MODEL_DIR = f"{_EXPERIMENT_DIR}/all_trained_models"
 _VALIDATED_MODEL_DIR = f"{_EXPERIMENT_DIR}/trained_models"
@@ -208,7 +208,7 @@ if __name__ == "__main__":
             pass
 
         # test on problems(for whole domain)
-        test_list = sorted_nicely(os.listdir(test_dir))[3:5]
+        test_list = sorted_nicely(os.listdir(test_dir))[0:3]
         for f in test_list:
             os.system("date")
             test_log_file = f"{_LOG_DIR_TEST}/{f.replace('.pddl', '')}_{desc}.log"
