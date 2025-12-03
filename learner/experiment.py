@@ -13,6 +13,7 @@ nohup python -u experiment.py -r lpig >> experiment.log &
 import os
 import argparse
 import json
+import logging
 
 import numpy as np
 from itertools import product
@@ -39,8 +40,6 @@ _LOG_DIR_VAL = f"{_MAIN_LOG_DIR}/val"
 _LOG_DIR_SELECT = f"{_MAIN_LOG_DIR}/select"
 _LOG_DIR_TEST = f"{_MAIN_LOG_DIR}/test"
 
-JSON_FILE = f"{_EXPERIMENT_DIR}/coverage.json"
-
 os.makedirs(_TRAINED_MODEL_DIR, exist_ok=True)
 os.makedirs(_VALIDATED_MODEL_DIR, exist_ok=True)
 os.makedirs(_MAIN_LOG_DIR, exist_ok=True)
@@ -48,6 +47,18 @@ os.makedirs(_LOG_DIR_TRAIN, exist_ok=True)
 os.makedirs(_LOG_DIR_VAL, exist_ok=True)
 os.makedirs(_LOG_DIR_SELECT, exist_ok=True)
 os.makedirs(_LOG_DIR_TEST, exist_ok=True)
+
+dump_file = f"{_EXPERIMENT_DIR}/coverage.json"
+logging.basicConfig(
+    filename=f"{_EXPERIMENT_DIR}/exp.log",
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+def p_log(log):
+    print(log)
+    logging.info(log)
 
 
 def get_model_desc(rep, domain, L, H, aggr, val_repeat, patience, lr, batch_size):
@@ -77,8 +88,14 @@ if __name__ == "__main__":
     patiences = [10]
     
     param_tuple = list(product(domains, Ls, Hs, patiences))
-    # param_tuple.remove(("blocks", 1, 16, 10))
-    # param_tuple.append(("blocks", 2, 16, 50))
+
+    param_tuple.remove(("blocks", 1, 16, 10))
+    param_tuple.append(("blocks", 2, 16, 50))
+    param_tuple.remove(("spanner", 1, 16, 10))
+    param_tuple.append(("spanner", 2, 8, 10))
+    param_tuple.remove(("n-puzzle", 1, 16, 10))
+    param_tuple.append(("n-puzzle", 1, 32, 10))
+
 
     def run_experiment_for_domain(args_tuple):
         domain, L, H, patience = args_tuple
@@ -97,10 +114,10 @@ if __name__ == "__main__":
 
             if not os.path.exists(model_file) or not os.path.exists(train_log_file):
                 cmd = f"python3 train_gnn.py {domain} -r {rep} -L {L} -H {H} --aggr {aggr} --save-file {model_file} --device {device} --seed {seed} --patience {patience}"
-                os.system(f"echo training with {domain} {rep}, see {train_log_file}")
+                p_log(f"training with {domain} {rep}, see {train_log_file}")
                 os.system(f"{cmd} > {train_log_file}")
             else:
-                os.system(f"echo already trained for {domain} {rep}, see {train_log_file}")
+                p_log(f"already trained for {domain} {rep}, see {train_log_file}")
         #######################################################################
 
         """validate"""
@@ -119,12 +136,12 @@ if __name__ == "__main__":
                 if not finished_correctly:
                     pf = f"{val_dir}/{f}"
                     cmd, intermediate_file = fd_cmd(df=df, pf=pf, m=model_file, search=_SEARCH, timeout=TIMEOUT)
-                    os.system(f"echo validating with {domain} {rep}, see {val_log_file}")
+                    p_log(f"validating {domain} {rep}, see {val_log_file}")
                     os.system(f"{cmd} > {val_log_file}")
                     if os.path.exists(intermediate_file):
                         os.remove(intermediate_file)
                 else:
-                    os.system(f"echo already validated for {domain} {rep}, see {val_log_file}")
+                    p_log(f"already validated for {domain} {rep}, see {val_log_file}")
         #######################################################################
 
         """ selection """
@@ -200,7 +217,7 @@ if __name__ == "__main__":
         pf = f"{test_dir}/{f}"
         cmd, intermediate_file = fd_cmd(df=df, pf=pf, m=model_file, search=_SEARCH, timeout=30)
         os.system("date")
-        os.system(f"echo warming up with {domain} {rep} {f.replace('.pddl', '')} {best_model_file}")
+        p_log(f"warming up with {domain} {rep} {f.replace('.pddl', '')} {best_model_file}")
         os.popen(cmd).readlines()
         try:
             os.remove(intermediate_file)
@@ -208,7 +225,7 @@ if __name__ == "__main__":
             pass
 
         # test on problems(for whole domain)
-        test_list = sorted_nicely(os.listdir(test_dir))[0:3]
+        test_list = sorted_nicely(os.listdir(test_dir))
         for f in test_list:
             os.system("date")
             test_log_file = f"{_LOG_DIR_TEST}/{f.replace('.pddl', '')}_{desc}.log"
@@ -218,12 +235,12 @@ if __name__ == "__main__":
             if not finished_correctly:
                 pf = f"{test_dir}/{f}"
                 cmd, intermediate_file = fd_cmd(df=df, pf=pf, m=model_file, search=_SEARCH, timeout=TIMEOUT)
-                os.system(f"echo testing {domain} {rep}, see {test_log_file}")
+                p_log(f"testing {domain} {rep}, see {test_log_file}")
                 os.system(f"{cmd} > {test_log_file}")
                 if os.path.exists(intermediate_file):
                     os.remove(intermediate_file)
             else:
-                os.system(f"echo already tested for {domain} {rep}, see {test_log_file}")
+                p_log(f"already tested for {domain} {rep}, see {test_log_file}")
 
             # check if failed or not
             assert os.path.exists(test_log_file)
@@ -232,16 +249,20 @@ if __name__ == "__main__":
             if solved:
                 failed = 0
                 success += 1
-                print("solved", flush=True)
+                log = f"solved: {success} / {len(test_list)}"
+                print(log, flush=True)
+                logging.info(log)
             else:
                 failed += 1
                 print("failed", flush=True)
+                logging.warning("failed")
             if failed >= FAIL_LIMIT[domain]:
                 print("Stop testing due to continuous fails.")
+                logging.error("Stop testing due to continuous fails.")
                 break
 
         coverage_ratio = success / len(test_list)
-        print(f"Coverage ratio of {domain} is {coverage_ratio:.4f}. (Params: L={L}, H={H}, p={patience})")
+        p_log(f"Coverage ratio of {domain} is {coverage_ratio:.4f}. (Params: L={L}, H={H}, p={patience})")
 
         # write to json
         result_obj = {
@@ -262,8 +283,8 @@ if __name__ == "__main__":
             "coverage": coverage_ratio
         }
 
-        if os.path.exists(JSON_FILE) and os.path.getsize(JSON_FILE) > 0:
-            with open(JSON_FILE, "r") as f:
+        if os.path.exists(dump_file) and os.path.getsize(dump_file) > 0:
+            with open(dump_file, "r") as f:
                 try:
                     data = json.load(f)
                     if not isinstance(data, list):
@@ -273,7 +294,7 @@ if __name__ == "__main__":
         else:
             data = []
         data.append(result_obj)
-        with open(JSON_FILE, "w") as f:
+        with open(dump_file, "w") as f:
             json.dump(data, f)
 
         return coverage_ratio
