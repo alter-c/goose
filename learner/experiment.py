@@ -93,8 +93,6 @@ if __name__ == "__main__":
     param_tuple.append(("blocks", 2, 16, 50))
     param_tuple.remove(("spanner", 1, 16, 10))
     param_tuple.append(("spanner", 2, 8, 10))
-    param_tuple.remove(("n-puzzle", 1, 16, 10))
-    param_tuple.append(("n-puzzle", 1, 32, 10))
 
 
     def run_experiment_for_domain(args_tuple):
@@ -299,7 +297,7 @@ if __name__ == "__main__":
 
         return coverage_ratio
 
-    workers = 2
+    workers = 1
 
     # Use multiprocessing to run experiments in parallel
     with multiprocessing.Pool(processes=min(workers, len(param_tuple), os.cpu_count())) as pool:

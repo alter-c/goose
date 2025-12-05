@@ -16,8 +16,6 @@ lifted/
 plans/
 plots/
 
-all_trained_models/
-experiments/
 experiment/
 aux_dir/
 plans/
@@ -29,6 +27,7 @@ slg
 flg
 llg
 dlg
+rlg_*
 
 sas_files
 plans
